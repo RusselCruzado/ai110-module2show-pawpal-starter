@@ -10,12 +10,24 @@ Three core actions:
 **a. Initial design**
 
 - Briefly describe your initial UML design.
+My initial design has four classes. Owner stores the user’s name, daily time budget, and preferences, and holds their pets. Pet stores basic pet info and owns a list of care tasks. Task represents a single care activity with a duration, priority, and category, and tracks whether it’s done. Scheduler is the “brain”: it takes an owner, gathers all tasks across their pets, and builds a daily plan that fits the available time, then explains its choices. I separated data (Owner, Pet, Task) from logic (Scheduler) so the scheduling rules can change without touching the data classes.
 - What classes did you include, and what responsibilities did you assign to each?
-
+  - Owner: stores the user's name, daily time budget, and preferences,
+    and holds their pets. It can add a pet and gather all tasks across
+    every pet.
+  - Pet: stores basic info (name, species, age) and owns a list of care
+    tasks. It can add or remove tasks.
+  - Task: represents a single care activity, such as a walk or feeding.
+    It tracks a title, duration, priority, and category, and whether it's
+    completed.
+  - Scheduler: the "brain" of the app. It takes an Owner, collects all
+    their tasks, builds a daily plan that fits the available time and
+    priorities, and explains its choices.
 
 **b. Design changes**
 
 - Did your design change during implementation?
+No.
 - If yes, describe at least one change and why you made it.
 
 ---

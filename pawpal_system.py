@@ -7,11 +7,13 @@ class Task:
     duration_minutes: int
     priority: int
     category: str
-    completed: bool
+    time: str
+    frequency: str = "daily"
+    completed: bool = False
 
     def mark_complete(self) -> None:
         """Mark this task as complete."""
-        pass
+        self.completed = True
 
 
 @dataclass
@@ -23,11 +25,14 @@ class Pet:
 
     def add_task(self, task: Task) -> None:
         """Add a task to this pet's care list."""
-        pass
+        self.tasks.append(task)
 
     def remove_task(self, title: str) -> None:
-        """Remove the task with the given title."""
-        pass
+        """Remove the first task matching the title, if present."""
+        for index, task in enumerate(self.tasks):
+            if task.title == title:
+                del self.tasks[index]
+                return
 
 
 @dataclass
@@ -39,11 +44,11 @@ class Owner:
 
     def add_pet(self, pet: Pet) -> None:
         """Add a pet to this owner's care list."""
-        pass
+        self.pets.append(pet)
 
     def get_all_tasks(self) -> list[Task]:
         """Return all tasks belonging to this owner's pets."""
-        pass
+        return [task for pet in self.pets for task in pet.tasks]
 
 
 class Scheduler:
@@ -54,9 +59,53 @@ class Scheduler:
         self.owner = owner
 
     def generate_daily_plan(self) -> list[Task]:
-        """Generate a daily care plan for the owner."""
-        pass
+        """Select incomplete tasks by time and priority within the daily time limit."""
+        pending_tasks = sorted(
+            (task for task in self.owner.get_all_tasks() if not task.completed),
+            key=lambda task: (task.time, -task.priority),
+        )
+        plan = []
+        remaining_minutes = self.owner.available_minutes_per_day
+
+        for task in pending_tasks:
+            if task.duration_minutes <= remaining_minutes:
+                plan.append(task)
+                remaining_minutes -= task.duration_minutes
+
+        return plan
 
     def explain_plan(self) -> str:
-        """Explain the generated daily care plan."""
-        pass
+        """Describe included tasks, time-limit skips, and completed tasks excluded."""
+        all_tasks = self.owner.get_all_tasks()
+        completed_count = sum(task.completed for task in all_tasks)
+        pending_tasks = sorted(
+            (task for task in all_tasks if not task.completed),
+            key=lambda task: (task.time, -task.priority),
+        )
+        remaining_minutes = self.owner.available_minutes_per_day
+        included = []
+        skipped = []
+
+        for task in pending_tasks:
+            if task.duration_minutes <= remaining_minutes:
+                remaining_minutes -= task.duration_minutes
+                included.append(
+                    f"- {task.time} {task.title} ({task.duration_minutes} min, "
+                    f"priority {task.priority}): fits the remaining daily time."
+                )
+            else:
+                skipped.append(
+                    f"- {task.time} {task.title} ({task.duration_minutes} min, "
+                    f"priority {task.priority}): needs more than the "
+                    f"{remaining_minutes} min remaining."
+                )
+
+        lines = [
+            f"Daily plan: {self.owner.available_minutes_per_day} minutes available.",
+            f"Completed tasks excluded: {completed_count}.",
+            "Included tasks:",
+            *(included or ["- None."]),
+            "Skipped because they did not fit:",
+            *(skipped or ["- None."]),
+        ]
+        return "\n".join(lines)
