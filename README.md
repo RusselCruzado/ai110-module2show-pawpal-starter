@@ -65,18 +65,20 @@ Skipped because they did not fit:
 ## 🧪 Testing PawPal+
 
 ```bash
-# Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
+python -m pytest
 ```
 
-Sample test output:
+The tests cover sorting, daily and weekly recurring tasks, conflict detection (including no conflict), empty pets, daily time-budget boundaries (exact fit and one minute over), and filtering by pet name and completion status.
 
 ```
-# Paste your pytest output here
+collected 12 items
+
+tests\test_pawpal.py ............                                                                  [100%]
+
+12 passed in 0.06s
 ```
+
+**Confidence Level:** ★★★★☆ (4 out of 5 stars). The tests cover core scheduling behavior and key edge cases, though they do not cover the full Streamlit interface.
 
 ## 📐 Smarter Scheduling
 

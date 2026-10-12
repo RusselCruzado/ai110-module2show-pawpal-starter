@@ -27,9 +27,9 @@ My initial design has four classes. Owner stores the user’s name, daily time b
 **b. Design changes**
 
 - Did your design change during implementation?
-No.
+Yes.
 - If yes, describe at least one change and why you made it.
-
+I added time and frequency to Task. My original Task had no way to say when a task happens or how often, so the scheduler couldn't make a timed plan.
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
