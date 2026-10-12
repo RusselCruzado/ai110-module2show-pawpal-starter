@@ -15,12 +15,7 @@ st.title("🐾 PawPal+")
 
 st.markdown(
     """
-Welcome to the PawPal+ starter app.
-
-This file is intentionally thin. It gives you a working Streamlit app so you can start quickly,
-but **it does not implement the project logic**. Your job is to design the system and build it.
-
-Use this app as your interactive demo once your backend classes/functions exist.
+Plan pet care tasks, track completion, and build a schedule that fits your daily time budget.
 """
 )
 
@@ -29,19 +24,13 @@ with st.expander("Scenario", expanded=True):
         """
 **PawPal+** is a pet care planning assistant. It helps a pet owner plan care tasks
 for their pet(s) based on constraints like time, priority, and preferences.
-
-You will design and implement the scheduling logic and connect it to this Streamlit UI.
 """
     )
 
 with st.expander("What you need to build", expanded=True):
     st.markdown(
         """
-At minimum, your system should:
-- Represent pet care tasks (what needs to happen, how long it takes, priority)
-- Represent the pet and the owner (basic info and preferences)
-- Build a plan/schedule for a day that chooses and orders tasks based on constraints
-- Explain the plan (why each task was chosen and when it happens)
+Add pets and their care tasks, then generate a daily plan with an explanation.
 """
     )
 
@@ -72,13 +61,15 @@ else:
 
 st.divider()
 st.subheader("Tasks")
+owner = st.session_state.owner
+scheduler = Scheduler(owner)
 
-if st.session_state.owner.pets:
+if owner.pets:
     with st.form("add_task_form"):
         selected_pet_index = st.selectbox(
             "Pet",
-            options=range(len(st.session_state.owner.pets)),
-            format_func=lambda index: st.session_state.owner.pets[index].name,
+            options=range(len(owner.pets)),
+            format_func=lambda index: owner.pets[index].name,
         )
         task_title = st.text_input("Task title", value="")
         duration = st.number_input(
@@ -87,6 +78,7 @@ if st.session_state.owner.pets:
         priority_label = st.selectbox("Priority", ["low", "medium", "high"])
         category = st.text_input("Category", value="feeding")
         task_time = st.time_input("Time", value=time(8, 0))
+        frequency = st.selectbox("Repeat", ["daily", "weekly"])
         add_task_submitted = st.form_submit_button("Add task")
 
     if add_task_submitted and task_title.strip():
@@ -97,10 +89,54 @@ if st.session_state.owner.pets:
             priority=priority_values[priority_label],
             category=category.strip(),
             time=task_time.strftime("%H:%M"),
+            frequency=frequency,
         )
-        st.session_state.owner.pets[selected_pet_index].add_task(task)
+        owner.pets[selected_pet_index].add_task(task)
 
-    for pet in st.session_state.owner.pets:
+    st.markdown("### Filter tasks")
+    filter_columns = st.columns(2)
+    with filter_columns[0]:
+        selected_pet_name = st.selectbox(
+            "Pet filter", ["All pets", *(pet.name for pet in owner.pets)]
+        )
+    with filter_columns[1]:
+        selected_status = st.selectbox(
+            "Status", ["All", "Pending", "Completed"]
+        )
+
+    completed_filter = {"All": None, "Pending": False, "Completed": True}[
+        selected_status
+    ]
+    filtered_tasks = scheduler.filter_tasks(
+        pet_name=None if selected_pet_name == "All pets" else selected_pet_name,
+        completed=completed_filter,
+    )
+    filtered_tasks = scheduler.sort_by_time(filtered_tasks)
+    pet_names_by_task_id = {
+        id(task): pet.name for pet in owner.pets for task in pet.tasks
+    }
+    if filtered_tasks:
+        st.table(
+            [
+                {
+                    "Pet": pet_names_by_task_id[id(task)],
+                    "Time": task.time,
+                    "Title": task.title,
+                    "Duration (min)": task.duration_minutes,
+                    "Priority": task.priority,
+                    "Category": task.category,
+                    "Repeat": task.frequency,
+                    "Due date": task.due_date,
+                    "Status": "Completed" if task.completed else "Pending",
+                }
+                for task in filtered_tasks
+            ]
+        )
+    else:
+        st.info("No tasks match these filters.")
+
+    st.markdown("### Tasks by pet")
+    for pet in owner.pets:
         st.markdown(f"**{pet.name}'s tasks**")
         if pet.tasks:
             st.table(
@@ -111,33 +147,73 @@ if st.session_state.owner.pets:
                         "Duration (min)": task.duration_minutes,
                         "Priority": task.priority,
                         "Category": task.category,
+                        "Repeat": task.frequency,
+                        "Due date": task.due_date,
+                        "Status": "Completed" if task.completed else "Pending",
                     }
-                    for task in pet.tasks
+                    for task in scheduler.sort_by_time(pet.tasks)
                 ]
             )
         else:
             st.caption("No tasks added.")
 
+    st.markdown("### Complete a task")
+    pending_tasks = scheduler.filter_tasks(completed=False)
+    if pending_tasks:
+        task_labels = {
+            index: (
+                f"{pet_names_by_task_id[id(task)]} | {task.time} | {task.title} "
+                f"({task.frequency})"
+            )
+            for index, task in enumerate(pending_tasks)
+        }
+        selected_task_index = st.selectbox(
+            "Pending task to complete",
+            options=range(len(pending_tasks)),
+            format_func=lambda index: task_labels[index],
+        )
+        if st.button("Mark complete"):
+            completed_task = pending_tasks[selected_task_index]
+            next_task = scheduler.mark_task_complete(completed_task)
+            if next_task is not None:
+                st.success(
+                    f"Task marked complete. Next {next_task.frequency} task is due "
+                    f"{next_task.due_date.isoformat()}."
+                )
+            else:
+                st.success("Task marked complete.")
+    else:
+        st.caption("There are no pending tasks to complete.")
+else:
+    st.info("Add a pet before creating tasks.")
+
 st.divider()
 st.subheader("Build Schedule")
 
 if st.button("Generate schedule"):
-    scheduler = Scheduler(st.session_state.owner)
+    conflicts = scheduler.detect_conflicts()
+    if conflicts:
+        for warning in conflicts:
+            st.warning(f"{warning} Suggestion: move one of the tasks to a different time.")
+    else:
+        st.success("No scheduling conflicts.")
+
     daily_plan = scheduler.generate_daily_plan()
-    pet_names_by_task_id = {
-        id(task): pet.name
-        for pet in st.session_state.owner.pets
-        for task in pet.tasks
-    }
 
     st.markdown("### Today's Schedule")
     if daily_plan:
-        for task in daily_plan:
-            pet_name = pet_names_by_task_id[id(task)]
-            st.write(
-                f"{task.time} | {task.title} | {pet_name} | "
-                f"{task.duration_minutes} min | Priority {task.priority}"
-            )
+        st.table(
+            [
+                {
+                    "Time": task.time,
+                    "Task": task.title,
+                    "Pet": pet_names_by_task_id[id(task)],
+                    "Duration (min)": task.duration_minutes,
+                    "Priority": task.priority,
+                }
+                for task in daily_plan
+            ]
+        )
     else:
         st.info("No tasks fit the daily schedule.")
 
