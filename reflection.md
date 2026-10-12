@@ -42,7 +42,9 @@ No.
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
+My scheduler only detects conflicts when two tasks are at the exact same time. It doesn't check whether tasks overlap based on how long they last.
 - Why is that tradeoff reasonable for this scenario?
+Exact-time conflicts are the most obvious mistakes, and checking for them keeps the code simple and easy to read. Checking overlapping durations would be more complicated than this app needs right now.
 
 ---
 
